@@ -553,6 +553,64 @@ class TestTable(unittest.TestCase):
 
         self.assertEqual(result.row_key, self.ROW_KEY)
 
+    def test_yield_retry_rows(self):
+        import grpc
+
+        client = _Client()
+        instance = _Instance(self.INSTANCE_NAME, client=client)
+        table = self._make_one(self.TABLE_ID, instance)
+
+        class Code:
+
+            def __call__(self, *args, **kwargs):
+                return grpc.StatusCode.UNAVAILABLE.value[0]
+
+        class Details:
+
+            def __call__(self, *args, **kwargs):
+                return 'Endpoint read failed'
+
+        class ErrorUnavailable(grpc.RpcError, grpc.Call):
+            """ErrorUnavailable exception"""
+
+            def __init__(self):
+                self.code = Code
+                self.details = Details
+
+        message = 'Endpoint read failed'
+        error = mock.create_autospec(ErrorUnavailable, instance=True)
+        error.code.return_value = grpc.StatusCode.UNAVAILABLE
+        error.details.return_value = message
+
+        # Create response_iterator
+        chunk = _ReadRowsResponseCellChunkPB(
+            row_key=self.ROW_KEY,
+            family_name=self.FAMILY_NAME,
+            qualifier=self.QUALIFIER,
+            timestamp_micros=self.TIMESTAMP_MICROS,
+            value=self.VALUE,
+            commit_row=True
+        )
+
+        chunks = [chunk]
+
+        response = _ReadRowsResponseV2(chunks)
+        response_iterator = _MockCancellableIterator(response)
+
+        # Patch the stub used by the API method.
+        client._data_stub = mock.MagicMock()
+        client._data_stub.ReadRows.side_effect = [ErrorUnavailable, response_iterator]
+        statuses = table.yield_rows(retry=True)
+        result = [status for status in statuses]
+        self.assertEqual(len(result), 0)
+
+        rows = []
+        for row in table.yield_rows(retry=True):
+            rows.append(row)
+        result = rows[0]
+
+        self.assertEqual(result.row_key, self.ROW_KEY)
+
     def test_sample_row_keys(self):
         from tests.unit._testing import _FakeStub
 
