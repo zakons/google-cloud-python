@@ -547,6 +547,12 @@ class _RetryableMutateRowsWorker(object):
         return self.responses_statuses
 
 
+def _retry_commit_exception(exc):
+    if isinstance(exc, grpc.RpcError):
+        exc = exceptions.from_grpc_error(exc)
+    return isinstance(exc, exceptions.ServiceUnavailable)
+
+
 class _RetryableReadRows(object):
     """A callable worker that can retry to read rows with transient errors.
 

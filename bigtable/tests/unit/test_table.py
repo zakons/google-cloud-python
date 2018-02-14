@@ -560,27 +560,14 @@ class TestTable(unittest.TestCase):
         instance = _Instance(self.INSTANCE_NAME, client=client)
         table = self._make_one(self.TABLE_ID, instance)
 
-        class Code:
-
-            def __call__(self, *args, **kwargs):
-                return grpc.StatusCode.UNAVAILABLE.value[0]
-
-        class Details:
-
-            def __call__(self, *args, **kwargs):
-                return 'Endpoint read failed'
-
         class ErrorUnavailable(grpc.RpcError, grpc.Call):
             """ErrorUnavailable exception"""
 
-            def __init__(self):
-                self.code = Code
-                self.details = Details
+            def code(self):
+                return grpc.StatusCode.UNAVAILABLE
 
-        message = 'Endpoint read failed'
-        error = mock.create_autospec(ErrorUnavailable, instance=True)
-        error.code.return_value = grpc.StatusCode.UNAVAILABLE
-        error.details.return_value = message
+            def details(self):
+                return 'Endpoint read failed'
 
         # Create response_iterator
         chunk = _ReadRowsResponseCellChunkPB(
@@ -599,10 +586,7 @@ class TestTable(unittest.TestCase):
 
         # Patch the stub used by the API method.
         client._data_stub = mock.MagicMock()
-        client._data_stub.ReadRows.side_effect = [ErrorUnavailable, response_iterator]
-        statuses = table.yield_rows(retry=True)
-        result = [status for status in statuses]
-        self.assertEqual(len(result), 0)
+        client._data_stub.ReadRows.side_effect = [ErrorUnavailable(), response_iterator]
 
         rows = []
         for row in table.yield_rows(retry=True):
