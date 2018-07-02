@@ -17,6 +17,9 @@
 
 import re
 
+from google.cloud.bigtable_admin_v2 import enums
+from google.cloud.bigtable_admin_v2.types import instance_pb2
+
 
 _CLUSTER_NAME_RE = re.compile(r'^projects/(?P<project>[^/]+)/'
                               r'instances/(?P<instance>[^/]+)/clusters/'
@@ -25,6 +28,7 @@ _CLUSTER_NAME_RE = re.compile(r'^projects/(?P<project>[^/]+)/'
 DEFAULT_SERVE_NODES = 3
 """Default number of nodes to use when creating a cluster."""
 
+_STORAGE_TYPE_UNSPECIFIED = enums.StorageType.STORAGE_TYPE_UNSPECIFIED
 
 class Cluster(object):
     """Representation of a Google Cloud Bigtable Cluster.
@@ -45,14 +49,30 @@ class Cluster(object):
     :type serve_nodes: int
     :param serve_nodes: (Optional) The number of nodes in the cluster.
                         Defaults to :data:`DEFAULT_SERVE_NODES`.
+
+    :type location_id: str
+    :param location_id: (Optional) The location where this cluster's nodes and
+                          storage reside. For best performance, clients should
+                          be located as close as possible to this cluster.
+                          Currently only zones are supported, so values
+                          should be of the form
+                          ``projects/<project>/locations/<zone>``.
+
+    :type default_storage_type: int
+    :param default_storage_type: (Optional) The type of storage used by this
+                                    cluster.
     """
 
     def __init__(self, cluster_id, instance,
-                 serve_nodes=DEFAULT_SERVE_NODES):
+                 serve_nodes=DEFAULT_SERVE_NODES,
+                 location_id=None,
+                 default_storage_type=_STORAGE_TYPE_UNSPECIFIED
+                 ):
         self.cluster_id = cluster_id
         self._instance = instance
         self.serve_nodes = serve_nodes
-        self.location = None
+        self.location = location_id
+        self.default_storage_type = default_storage_type
 
     @property
     def name(self):
@@ -72,6 +92,14 @@ class Cluster(object):
         return self._instance._client.instance_admin_client.cluster_path(
             self._instance._client.project, self._instance.instance_id,
             self.cluster_id)
+
+    @property
+    def to_pb(self):
+        """Generate pb message to GAPIC api calls"""
+        return instance_pb2.Cluster(
+            name=self.name, location=self.location,
+            serve_nodes=self.serve_nodes,
+            default_storage_type=self.default_storage_type)
 
     def __eq__(self, other):
         if not isinstance(other, self.__class__):

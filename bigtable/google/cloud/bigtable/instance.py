@@ -18,6 +18,7 @@
 import re
 
 from google.cloud.bigtable.table import Table
+from google.cloud.bigtable.cluster import Cluster
 from google.cloud.bigtable.cluster import DEFAULT_SERVE_NODES
 
 from google.protobuf import field_mask_pb2
@@ -480,3 +481,30 @@ class Instance(object):
             self._client.project, self.instance_id, app_profile_id)
         self._client._instance_admin_client.delete_app_profile(
             app_profile_path, ignore_warnings)
+
+    def cluster(self, cluster_id, serve_nodes=DEFAULT_SERVE_NODES,
+                location_id=None,
+                default_storage_type=_STORAGE_TYPE_UNSPECIFIED):
+        """Factory to create a table associated with this instance.
+        :type cluster_id: str
+        :param cluster_id: The ID of the cluster.
+        :type instance: :class:`~google.cloud.bigtable.instance.Instance`
+        :param instance: The instance where the cluster resides.
+        :type serve_nodes: int
+        :param serve_nodes: (Optional) The number of nodes in the cluster.
+                            Defaults to :data:`DEFAULT_SERVE_NODES`.
+        :type location_id: str
+        :param location_id: (Optional) The location where this cluster's nodes and
+                              storage reside. For best performance, clients should
+                              be located as close as possible to this cluster.
+                              Currently only zones are supported, so values
+                              should be of the form
+                              ``projects/<project>/locations/<zone>``.
+        :type default_storage_type: int
+        :param default_storage_type: (Optional) The type of storage used by this
+                                        cluster.
+        :rtype: :class:`Table <google.cloud.bigtable.cluster.Cluster>`
+        :returns: The cluster owned by this instance.
+        """
+        return Cluster(cluster_id, self, serve_nodes, location_id,
+                       default_storage_type)

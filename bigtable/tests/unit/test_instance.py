@@ -811,6 +811,24 @@ class TestInstance(unittest.TestCase):
 
         self.assertEqual(expected_result, result)
 
+    def test_cluster_factory_defaults(self):
+        from google.cloud.bigtable.cluster import Cluster
+
+        CLUSTER_ID = 'cluster-id'
+        SERVE_NODES = 4
+        DEFAULT_STORAGE_TYPE = 0
+        client = object()
+        instance = self._make_one(instance_id=self.INSTANCE_ID, client=client)
+
+        cluster = instance.cluster(
+            CLUSTER_ID, serve_nodes=SERVE_NODES, location_id=self.LOCATION,
+            default_storage_type=DEFAULT_STORAGE_TYPE)
+
+        self.assertIsInstance(cluster, Cluster)
+        self.assertEqual(cluster.cluster_id, CLUSTER_ID)
+        self.assertEqual(cluster.serve_nodes, SERVE_NODES)
+        self.assertIs(cluster._instance, instance)
+
 
 class _Client(object):
 
