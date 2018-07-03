@@ -523,8 +523,9 @@ class _RetryableMutateRowsWorker(object):
         entries = []
         mutations_count = 0
         for mutation_row in mutation_rows:
-            mutations_count += 1
-            entries.append(mutation_row.mutations_entry)
+            entry = mutation_row.mutations_entry
+            mutations_count += len(entry.mutations)
+            entries.append(entry)
 
         if mutations_count > _MAX_BULK_MUTATIONS:
             raise TooManyMutationsError('Maximum number of mutations is %s' %
