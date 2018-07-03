@@ -295,22 +295,25 @@ class TestInstance(unittest.TestCase):
                 channel=channel))
         client._instance_admin_client = instance_api
 
-        # Perform the method and check the result.
-        result = instance.create(location_id=self.LOCATION_ID)
-        actual_request = channel.requests[0][1]
-
+        clusters = {}
         cluster_id = '{}-cluster'.format(self.INSTANCE_ID)
-        cluster = self._create_cluster(
+        cluster = instance.cluster(
+            cluster_id, DEFAULT_SERVE_NODES, self.LOCATION,
+            enums.StorageType.STORAGE_TYPE_UNSPECIFIED)
+        clusters[cluster_id] = self._create_cluster(
             instance_api, cluster_id, self.LOCATION_ID, DEFAULT_SERVE_NODES,
             enums.StorageType.STORAGE_TYPE_UNSPECIFIED)
 
+        # Perform the method and check the result.
+        result = instance.create(clusters=[cluster])
+        actual_request = channel.requests[0][1]
+
         expected_request = self._create_instance_request(
             self.DISPLAY_NAME,
-            {cluster_id: cluster}
+            clusters
         )
         self.assertEqual(expected_request, actual_request)
         self.assertIsInstance(result, operation.Operation)
-        # self.assertEqual(result.operation.name, self.OP_NAME)
         self.assertIsInstance(result.metadata,
                               messages_v2_pb2.CreateInstanceMetadata)
 
@@ -339,19 +342,22 @@ class TestInstance(unittest.TestCase):
         client._instance_admin_client = instance_api
 
         # Perform the method and check the result.
-        result = instance.create(
-            location_id=self.LOCATION_ID, serve_nodes=serve_nodes,
-            default_storage_type=enums.StorageType.SSD)
+        cluster_id = '{}-cluster'.format(self.INSTANCE_ID)
+        cluster = instance.cluster(
+            cluster_id, 3, self.LOCATION,
+            enums.StorageType.STORAGE_TYPE_UNSPECIFIED)
+
+        result = instance.create([cluster])
         actual_request = channel.requests[0][1]
 
-        cluster_id = '{}-cluster'.format(self.INSTANCE_ID)
-        cluster = self._create_cluster(
-            instance_api, cluster_id, self.LOCATION_ID, serve_nodes,
-            enums.StorageType.SSD)
+        clusters = {}
+        clusters[cluster_id] = self._create_cluster(
+            instance_api, cluster_id, self.LOCATION_ID, 3,
+            enums.StorageType.STORAGE_TYPE_UNSPECIFIED)
 
         expected_request = self._create_instance_request(
             self.DISPLAY_NAME,
-            {cluster_id: cluster}
+            clusters
         )
         self.assertEqual(expected_request, actual_request)
         self.assertIsInstance(result, operation.Operation)
