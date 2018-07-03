@@ -18,6 +18,7 @@
 import re
 
 from google.cloud.bigtable.table import Table
+from google.cloud.bigtable.cluster import Cluster
 from google.cloud.bigtable.cluster import DEFAULT_SERVE_NODES
 
 from google.protobuf import field_mask_pb2
@@ -149,66 +150,36 @@ class Instance(object):
         #       instance ID on the response match the request.
         self._update_from_pb(instance_pb)
 
-    def create(self, location_id=_EXISTING_INSTANCE_LOCATION_ID,
-               serve_nodes=DEFAULT_SERVE_NODES,
-               default_storage_type=_STORAGE_TYPE_UNSPECIFIED):
+    def create(self, clusters):
         """Create this instance.
-
         .. note::
-
             Uses the ``project`` and ``instance_id`` on the current
             :class:`Instance` in addition to the ``display_name``.
             To change them before creating, reset the values via
-
             .. code:: python
-
                 instance.display_name = 'New display name'
                 instance.instance_id = 'i-changed-my-mind'
-
             before calling :meth:`create`.
 
-        :type location_id: str
-        :param location_id: ID of the location in which the instance will be
-                            created.  Required for instances which do not yet
-                            exist.
-
-
-        :type serve_nodes: int
-        :param serve_nodes: (Optional) The number of nodes in the instance's
-                            cluster; used to set up the instance's cluster.
-
-        :type default_storage_type: int
-        :param default_storage_type: (Optional) The default values are
-                                     STORAGE_TYPE_UNSPECIFIED = 0: The user
-                                     did not specify a storage type.
-                                     SSD = 1: Flash (SSD) storage should be
-                                     used.
-                                     HDD = 2: Magnetic drive (HDD) storage
-                                     should be used.
+        :type clusters: :class:`~[~google.cloud.bigtable.cluster.Cluster]`
+        :param clusters: The list of clusters to be created.
 
         :rtype: :class:`~google.api_core.operation.Operation`
         :returns: The long-running operation corresponding to the create
                     operation.
         """
-        clusters = {}
-        cluster_id = '{}-cluster'.format(self.instance_id)
-        cluster_name = self._client.instance_admin_client.cluster_path(
-            self._client.project, self.instance_id, cluster_id)
-        location = self._client.instance_admin_client.location_path(
-            self._client.project, location_id)
-        cluster = instance_pb2.Cluster(
-            name=cluster_name, location=location,
-            serve_nodes=serve_nodes,
-            default_storage_type=default_storage_type)
         instance = instance_pb2.Instance(
             display_name=self.display_name
         )
-        clusters[cluster_id] = cluster
         parent = self._client.project_path
+
+        clusters_map = {}
+        for cluster in clusters:
+            clusters_map[cluster.cluster_id] = cluster.to_pb
 
         return self._client.instance_admin_client.create_instance(
             parent=parent, instance_id=self.instance_id, instance=instance,
-            clusters=clusters)
+            clusters=clusters_map)
 
     def update(self):
         """Update this instance.
@@ -480,3 +451,36 @@ class Instance(object):
             self._client.project, self.instance_id, app_profile_id)
         self._client._instance_admin_client.delete_app_profile(
             app_profile_path, ignore_warnings)
+
+    def cluster(self, cluster_id, serve_nodes=DEFAULT_SERVE_NODES,
+                location_id=None,
+                default_storage_type=_STORAGE_TYPE_UNSPECIFIED):
+        """Factory to create a table associated with this instance.
+
+        :type cluster_id: str
+        :param cluster_id: The ID of the cluster.
+
+        :type instance: :class:`~google.cloud.bigtable.instance.Instance`
+        :param instance: The instance where the cluster resides.
+
+        :type serve_nodes: int
+        :param serve_nodes: (Optional) The number of nodes in the cluster.
+                            Defaults to :data:`DEFAULT_SERVE_NODES`.
+
+        :type location_id: str
+        :param location_id: (Optional) The location where this cluster's nodes
+                            and storage reside. For best performance,
+                            clients should be located as close as possible
+                            to this cluster. Currently only zones are
+                            supported, so values should be of the form
+                              ``projects/<project>/locations/<zone>``.
+
+        :type default_storage_type: int
+        :param default_storage_type: (Optional) The type of storage used by
+                                        this cluster.
+
+        :rtype: :class:`Table <google.cloud.bigtable.cluster.Cluster>`
+        :returns: The cluster owned by this instance.
+        """
+        return Cluster(cluster_id, self, serve_nodes, location_id,
+                       default_storage_type)

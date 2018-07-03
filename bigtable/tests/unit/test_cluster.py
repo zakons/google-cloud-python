@@ -28,6 +28,8 @@ class TestCluster(unittest.TestCase):
     CLUSTER_NAME = ('projects/' + PROJECT +
                     '/instances/' + INSTANCE_ID +
                     '/clusters/' + CLUSTER_ID)
+    LOCATION_ID = 'locname'
+    LOCATION = 'projects/' + PROJECT + '/locations/' + LOCATION_ID
 
     @staticmethod
     def _get_target_class():
@@ -79,6 +81,28 @@ class TestCluster(unittest.TestCase):
         cluster = self._make_one(self.CLUSTER_ID, instance)
 
         self.assertEqual(cluster.name, self.CLUSTER_NAME)
+
+    def test_to_pb(self):
+        from google.cloud.bigtable.instance import Instance
+        from google.cloud.bigtable_admin_v2.proto import instance_pb2
+
+        SERVE_NODES = 4
+        DEFAULT_STORAGE_TYPE = 0
+        credentials = _make_credentials()
+        client = self._make_client(project=self.PROJECT,
+                                   credentials=credentials, admin=True)
+        instance = Instance(self.INSTANCE_ID, client)
+        cluster = self._make_one(
+            self.CLUSTER_ID, instance, location_id=self.LOCATION,
+            serve_nodes=SERVE_NODES, default_storage_type=DEFAULT_STORAGE_TYPE)
+
+        expected_result = instance_pb2.Cluster(
+            name=self.CLUSTER_NAME, location=self.LOCATION,
+            serve_nodes=SERVE_NODES, default_storage_type=DEFAULT_STORAGE_TYPE)
+
+        result = cluster.to_pb
+
+        self.assertEqual(expected_result, result)
 
     def test___eq__(self):
         client = _Client(self.PROJECT)

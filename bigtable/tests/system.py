@@ -54,6 +54,7 @@ ROW_KEY_ALT = b'row-key-alt'
 ROUTING_POLICY_TYPE_ANY = 1
 ROUTING_POLICY_TYPE_SINGLE = 2
 EXISTING_INSTANCES = []
+DEFAULT_SERVE_NODES = 3
 
 
 class Config(object):
@@ -89,15 +90,20 @@ def setUpModule():
     if not Config.IN_EMULATOR:
         retry = RetryErrors(GrpcRendezvous,
                             error_predicate=_retry_on_unavailable)
-        instances_response = retry(Config.CLIENT.list_instances)()
+        instances, failed_locations = retry(Config.CLIENT.list_instances)()
 
-        if len(instances_response.failed_locations) != 0:
+        if len(failed_locations) != 0:
             raise ValueError('List instances failed in module set up.')
 
-        EXISTING_INSTANCES[:] = instances_response.instances
+        EXISTING_INSTANCES[:] = instances
 
         # After listing, create the test instance.
-        created_op = Config.INSTANCE.create(location_id=LOCATION_ID)
+        location_id = ('projects/' + Config.CLIENT.project + '/locations/' +
+                       LOCATION_ID)
+        cluster = Config.INSTANCE.cluster(
+            cluster_id=CLUSTER_ID, location_id=location_id,
+            serve_nodes=DEFAULT_SERVE_NODES, default_storage_type=0)
+        created_op = Config.INSTANCE.create(clusters=[cluster])
         created_op.result(timeout=10)
 
 
@@ -139,9 +145,27 @@ class TestInstanceAdminAPI(unittest.TestCase):
         self.assertEqual(instance.display_name, Config.INSTANCE.display_name)
 
     def test_create_instance(self):
+        from google.cloud.bigtable_admin_v2.gapic import enums
+
         ALT_INSTANCE_ID = 'new' + unique_resource_id('-')
-        instance = Config.CLIENT.instance(ALT_INSTANCE_ID)
-        operation = instance.create(location_id=LOCATION_ID)
+        instance = Config.CLIENT.instance(ALT_INSTANCE_ID, LOCATION_ID)
+
+        CLUSTER_ID_1 = 'system-test-cluster-1'
+        CLUSTER_ID_2 = 'system-test-cluster-2'
+        location_id = ('projects/' + Config.CLIENT.project + '/locations/' +
+                       LOCATION_ID)
+        default_storage_type = enums.StorageType.SSD
+        cluster1 = instance.cluster(
+            cluster_id=CLUSTER_ID_1, location_id=location_id,
+            serve_nodes=DEFAULT_SERVE_NODES,
+            default_storage_type=default_storage_type)
+        cluster2 = instance.cluster(
+            cluster_id=CLUSTER_ID_2, location_id=location_id,
+            serve_nodes=DEFAULT_SERVE_NODES,
+            default_storage_type=default_storage_type)
+        clusters = [cluster1, cluster2]
+
+        operation = instance.create(clusters=clusters)
         # Make sure this instance gets deleted after the test case.
         self.instances_to_delete.append(instance)
 
@@ -154,6 +178,11 @@ class TestInstanceAdminAPI(unittest.TestCase):
 
         self.assertEqual(instance, instance_alt)
         self.assertEqual(instance.display_name, instance_alt.display_name)
+
+        # Compare at the protobuf level to compare all attributes
+        list_clusters, failed_locations = instance.list_clusters()
+        expected_clusters = [cluster.to_pb for cluster in list_clusters]
+        self.assertEqual(expected_clusters, [cluster2.to_pb, cluster1.to_pb])
 
     def test_update(self):
         OLD_DISPLAY_NAME = Config.INSTANCE.display_name
