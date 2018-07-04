@@ -153,11 +153,15 @@ class TestDirectRow(unittest.TestCase):
                          entry.mutations)
         row.delete()
 
-        expected_pb = _MutationPB(
+        mutation_pb = _MutationPB(
             delete_from_row=_MutationDeleteFromRowPB(),
         )
-        self.assertEqual(row.row_mutations.mutations_entry.mutations[0],
-                         expected_pb)
+
+        mutation_entry = bigtable_pb2.MutateRowsRequest.Entry(
+            row_key=row_key,
+            mutations=[mutation_pb]
+        )
+        self.assertEqual(row.row_mutations.mutations_entry, mutation_entry)
 
     def test_delete_cell(self):
         from google.cloud.bigtable_v2.proto import bigtable_pb2
@@ -200,13 +204,17 @@ class TestDirectRow(unittest.TestCase):
                          entry.mutations)
         row.delete_cells_by_column_family(column_family_id=column_family_id)
 
-        expected_pb = _MutationPB(
+        mutation_pb = _MutationPB(
             delete_from_family=_MutationDeleteFromFamilyPB(
                 family_name=column_family_id,
             ),
         )
-        self.assertEqual(row.row_mutations.mutations_entry.mutations[0],
-                         expected_pb)
+
+        mutation_entry = bigtable_pb2.MutateRowsRequest.Entry(
+            row_key=row_key,
+            mutations=[mutation_pb]
+        )
+        self.assertEqual(row.row_mutations.mutations_entry, mutation_entry)
 
     def test_delete_cells_no_columns(self):
         from google.cloud.bigtable_v2.proto import bigtable_pb2
@@ -243,17 +251,21 @@ class TestDirectRow(unittest.TestCase):
         else:
             row.delete_cells(column_family_id, columns)
 
-        expected_pb = _MutationPB(
+        mutation_pb = _MutationPB(
             delete_from_column=_MutationDeleteFromColumnPB(
                 family_name=column_family_id,
                 column_qualifier=column,
             ),
         )
         if time_range is not None:
-            expected_pb.delete_from_column.time_range.CopyFrom(
+            mutation_pb.delete_from_column.time_range.CopyFrom(
                 time_range.to_pb())
-        self.assertEqual(row.row_mutations.mutations_entry.mutations[0],
-                         expected_pb)
+
+        mutation_entry = bigtable_pb2.MutateRowsRequest.Entry(
+            row_key=row_key,
+            mutations=[mutation_pb]
+        )
+        self.assertEqual(row.row_mutations.mutations_entry, mutation_entry)
 
     def test_delete_cells_no_time_range(self):
         self._delete_cells_helper()
@@ -303,22 +315,25 @@ class TestDirectRow(unittest.TestCase):
                          entry.mutations)
         row.delete_cells(column_family_id, columns)
 
-        expected_pb1 = _MutationPB(
+        mutation_pb1 = _MutationPB(
             delete_from_column=_MutationDeleteFromColumnPB(
                 family_name=column_family_id,
                 column_qualifier=column1_bytes,
             ),
         )
-        expected_pb2 = _MutationPB(
+        mutation_pb2 = _MutationPB(
             delete_from_column=_MutationDeleteFromColumnPB(
                 family_name=column_family_id,
                 column_qualifier=column2_bytes,
             ),
         )
-        self.assertEqual(row.row_mutations.mutations_entry.mutations[0],
-                         expected_pb1)
-        self.assertEqual(row.row_mutations.mutations_entry.mutations[1],
-                         expected_pb2)
+
+        mutation_entry = bigtable_pb2.MutateRowsRequest.Entry(
+            row_key=row_key,
+            mutations=[mutation_pb1, mutation_pb2]
+        )
+
+        self.assertEqual(row.row_mutations.mutations_entry, mutation_entry)
 
     def _make_responses(self, codes):
         import six
