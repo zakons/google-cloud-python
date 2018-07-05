@@ -22,6 +22,8 @@ from google.api_core.exceptions import NotFound
 from google.api_core.retry import if_exception_type
 from google.api_core.retry import Retry
 from google.cloud._helpers import _to_bytes
+from google.cloud.bigtable_v2.proto import (
+    bigtable_pb2 as data_messages_v2_pb2)
 from google.cloud.bigtable.column_family import _gc_rule_from_pb
 from google.cloud.bigtable.column_family import ColumnFamily
 from google.cloud.bigtable.row import AppendRow
@@ -29,10 +31,6 @@ from google.cloud.bigtable.row import ConditionalRow
 from google.cloud.bigtable.row import DirectRow
 from google.cloud.bigtable.row_data import PartialRowsData
 from google.cloud.bigtable.row_data import YieldRowsData
-from google.cloud.bigtable_v2.proto import (
-    bigtable_pb2 as data_messages_v2_pb2)
-from google.cloud.bigtable_admin_v2.proto import (
-    bigtable_table_admin_pb2 as table_admin_messages_v2_pb2)
 
 
 # Maximum number of mutations in bulk (MutateRowsRequest message):
@@ -179,7 +177,9 @@ class Table(object):
 
     def create(self):
         """Creates this table.
+
         .. note::
+
             A create request returns a
             :class:`._generated.table_pb2.Table` but we don't use
             this response.
@@ -663,13 +663,9 @@ def _mutate_rows_request(table_name, rows, app_profile_id=None):
     for row in rows:
         _check_row_table_name(table_name, row)
         _check_row_type(row)
-        entry = request_pb.entries.add()
-        entry.row_key = row.row_key
-        # NOTE: Since `_check_row_type` has verified `row` is a `DirectRow`,
-        #  the mutations have no state.
-        for mutation in row._get_mutations(None):
-            mutations_count += 1
-            entry.mutations.add().CopyFrom(mutation)
+        mutations = row._get_mutations()
+        request_pb.entries.add(row_key=row.row_key, mutations=mutations)
+        mutations_count += len(mutations)
     if mutations_count > _MAX_BULK_MUTATIONS:
         raise TooManyMutationsError('Maximum number of mutations is %s' %
                                     (_MAX_BULK_MUTATIONS,))
