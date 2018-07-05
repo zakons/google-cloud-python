@@ -336,7 +336,6 @@ class TestDirectRow(unittest.TestCase):
         self.assertEqual(row.row_mutations.mutations_entry, mutation_entry)
 
     def _make_responses(self, codes):
-        import six
         from google.cloud.bigtable_v2.proto.bigtable_pb2 import (
             MutateRowsResponse)
         from google.rpc.status_pb2 import Status
