@@ -252,8 +252,10 @@ class TestTableAdminAPI(unittest.TestCase):
 
         # Read Sample Row Keys for created splits
         sample_row_keys = temp_table.sample_row_keys()
-        self.assertEqual(set([srk.row_key for srk in sample_row_keys]),
-                         set(initial_split_keys))
+        # Remove blank row_key value from sample_row_keys results
+        expected_split_keys = [srk.row_key for srk in sample_row_keys if
+                 srk.row_key.decode('utf-8') != '']
+        self.assertEqual(set(expected_split_keys), set(initial_split_keys))
 
     def test_create_column_family(self):
         temp_table_id = 'test-create-column-family'
