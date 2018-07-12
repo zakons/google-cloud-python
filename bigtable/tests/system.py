@@ -82,7 +82,7 @@ def setUpModule():
         credentials = EmulatorCreds()
         Config.CLIENT = Client(admin=True, credentials=credentials)
     else:
-        Config.CLIENT = Client(admin=True)
+        Config.CLIENT = Client(project='grass-clump-479', admin=True)
 
     Config.INSTANCE = Config.CLIENT.instance(INSTANCE_ID)
 
@@ -245,7 +245,7 @@ class TestTableAdminAPI(unittest.TestCase):
     def test_create_table_with_split_keys(self):
         temp_table_id = 'foo-bar-baz-split-table'
         initial_split_keys = [b'split_key_1', b'split_key_10',
-                              b'split_key_20', b'']
+                              b'split_key_20']
         temp_table = Config.INSTANCE.table(temp_table_id)
         temp_table.create(initial_split_keys=initial_split_keys)
         self.tables_to_delete.append(temp_table)
